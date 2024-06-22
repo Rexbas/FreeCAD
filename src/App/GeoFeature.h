@@ -146,10 +146,13 @@ public:
      * @brief Virtual function to get the camera alignment direction
      *
      * Finds a direction to align the camera with.
+     * Also tries to find a XY alignment direction, if not found then directionXY is (0, 0, 0)
      *
      * @return bool whether or not a direction is found.
      */
-    virtual bool getCameraAlignmentDirection(Base::Vector3d& direction, const char* subname = nullptr) const;
+    virtual bool getCameraAlignmentDirection(Base::Vector3d& directionZ,
+                                             Base::Vector3d& directionXY,
+                                             const char* subname = nullptr) const;
 #ifdef FC_USE_TNP_FIX
     /** Search sub element using internal cached geometry
      *
