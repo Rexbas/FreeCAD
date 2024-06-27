@@ -121,6 +121,8 @@
 #include "NavigationAnimation.h"
 #include "Utilities.h"
 
+#include <boost/math/constants/constants.hpp>
+
 
 FC_LOG_LEVEL_INIT("3DViewer",true,true)
 
@@ -3378,10 +3380,86 @@ void View3DInventorViewer::alignToSelection()
         return;
     }
 
-    Base::Vector3d direction;
-    if (geoFeature->getCameraAlignmentDirection(direction, selection[0].SubName)) {
-        const auto orientation = SbRotation(SbVec3f(0, 0, 1), Base::convertTo<SbVec3f>(direction));
-        setCameraOrientation(orientation);
+    Base::Vector3d baseDirectionZ;
+    Base::Vector3d baseDirectionXY;
+    if (geoFeature->getCameraAlignmentDirection(baseDirectionZ, baseDirectionXY, selection[0].SubName)) {
+
+        const auto directionZ = Base::convertTo<SbVec3f>(baseDirectionZ);
+
+        if (baseDirectionXY.Length() != 0) {
+            // Second alignment direction found
+
+            const SbRotation cameraOrientation = getCameraOrientation();
+
+            const auto directionXY = Base::convertTo<SbVec3f>(baseDirectionXY);
+
+            SbVec3f cameraZ;
+            cameraOrientation.multVec(SbVec3f(0, 0, 1), cameraZ);
+
+            // Rotate the camera to align with directionZ by the smallest angle to align the z-axis
+            const SbRotation intermediateOrientation = cameraOrientation * SbRotation(cameraZ, directionZ);
+
+            SbVec3f intermediateX;
+            intermediateOrientation.multVec(SbVec3f(1, 0, 0), intermediateX);
+
+            // Find angle between directionXY and intermediateX
+            const SbRotation rotation(directionXY, intermediateX);
+            SbVec3f axis;
+            float angle;
+            rotation.getValue(axis, angle);
+
+            // Flip the sign of the angle if axis and directionZ are in opposite direction
+            if (axis.dot(directionZ) < 0 && angle != 0) {
+                angle *= -1;
+            }
+
+            static const float pi = boost::math::constants::pi<float>();
+            static const float pi2 = boost::math::constants::two_pi<float>();
+            static const float pi1_2 = boost::math::constants::half_pi<float>();
+            static const float pi1_4 = boost::math::constants::quarter_pi<float>();
+            static const float pi3_4 = boost::math::constants::three_quarters_pi<float>();
+
+            // Make angle positive
+            if (angle < 0) {
+                angle += pi2;
+            }
+
+            // Find the angle to rotate to the nearest horizontal or vertical alignment of directionXY
+            if (angle <= pi1_4) {
+                angle = 0;
+            }
+            else if (angle <= pi3_4) {
+                angle = pi1_2;
+            }
+            else if (angle < pi + pi1_4) {
+                angle = pi;
+            }
+            else if (angle < pi + pi3_4) {
+                angle = pi + pi1_2;
+            }
+            else {
+                angle = 0;
+            }
+
+            SbVec3f directionX;
+            SbRotation(directionZ, angle).multVec(directionXY, directionX);
+
+            const SbVec3f directionY = directionZ.cross(directionX);
+
+            const auto orientationn = SbRotation(SbMatrix(
+                directionX[0],  directionX[1],  directionX[2],  0,
+                directionY[0],  directionY[1],  directionY[2],  0,
+                directionZ[0],  directionZ[1],  directionZ[2],  0,
+                0,              0,              0,              1));
+
+            setCameraOrientation(orientationn);
+        }
+        else {
+            // No second alignment direction found
+
+            const auto orientation = SbRotation(SbVec3f(0, 0, 1), directionZ);
+            setCameraOrientation(orientation);
+        }
     }
 }
 
