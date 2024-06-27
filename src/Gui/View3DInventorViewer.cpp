@@ -3375,16 +3375,29 @@ void View3DInventorViewer::alignToSelection()
     // Get the geo feature
     App::GeoFeature* geoFeature = nullptr;
     std::pair<std::string, std::string> elementName;
-    App::GeoFeature::resolveElement(selection[0].pObject, selection[0].SubName, elementName, false, App::GeoFeature::ElementNameType::Normal, nullptr, nullptr, &geoFeature);
+    const auto subname = selection[0].SubName;
+    App::GeoFeature::resolveElement(selection[0].pObject, subname, elementName, false, App::GeoFeature::ElementNameType::Normal, nullptr, nullptr, &geoFeature);
     if (!geoFeature) {
         return;
     }
 
     Base::Vector3d baseDirectionZ;
     Base::Vector3d baseDirectionXY;
-    if (geoFeature->getCameraAlignmentDirection(baseDirectionZ, baseDirectionXY, selection[0].SubName)) {
+    if (geoFeature->getCameraAlignmentDirection(baseDirectionZ, baseDirectionXY, subname)) {
+        auto directionZ = Base::convertTo<SbVec3f>(baseDirectionZ);
 
-        const auto directionZ = Base::convertTo<SbVec3f>(baseDirectionZ);
+        // If the selection is an edge and the current cameraZ direction is closer to the opposite
+        // of directionZ then negate directionZ for a smaller rotation
+        if (boost::starts_with(subname, "Edge")) {
+            const SbRotation cameraOrientation = getCameraOrientation();
+
+            SbVec3f cameraZ;
+            cameraOrientation.multVec(SbVec3f(0, 0, 1), cameraZ);
+
+            if (cameraZ.dot(directionZ) < 0) {
+                directionZ.negate();
+            }
+        }
 
         if (baseDirectionXY.Length() != 0) {
             // Second alignment direction found
