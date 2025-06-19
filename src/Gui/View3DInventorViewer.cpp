@@ -3536,7 +3536,7 @@ void View3DInventorViewer::viewSelection()
     }
 }
 
-void View3DInventorViewer::alignToSelection()
+void View3DInventorViewer::alignToSelection(const bool reverse) const
 {
     if (!getCamera()) {
         return;
@@ -3590,6 +3590,10 @@ void View3DInventorViewer::alignToSelection()
 
         // Negate if the camera is closer to the opposite direction
         if (cameraZ.dot(directionZ) < 0) {
+            directionZ.negate();
+        }
+
+        if (reverse) {
             directionZ.negate();
         }
 
