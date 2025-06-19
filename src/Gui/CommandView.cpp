@@ -3971,7 +3971,7 @@ StdCmdReverseAlignToSelection::StdCmdReverseAlignToSelection()
     sMenuText     = QT_TR_NOOP("&Reverse align to selection");
     sToolTipText  = QT_TR_NOOP("Reverse align the view with the selection");
     sWhatsThis    = "Std_ReverseAlignToSelection";
-    sPixmap       = "reverse-align-to-selection";
+    sPixmap       = "align-to-selection";
     eType         = Alter3DView;
 }
 
