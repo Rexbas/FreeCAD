@@ -432,7 +432,7 @@ public:
      */
     void viewSelection();
 
-    void alignToSelection();
+    void alignToSelection(const bool inverseIfAligned = false) const;
 
     void setGradientBackground(Background);
     Background getGradientBackground() const;

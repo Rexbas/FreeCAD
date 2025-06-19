@@ -419,7 +419,7 @@ bool View3DInventor::onMsg(const char* pMsg, const char** ppReturn)
         return true;
     }
     else if (strcmp("AlignToSelection", pMsg) == 0) {
-        _viewer->alignToSelection();
+        _viewer->alignToSelection(true);
         return true;
     }
     else if (strcmp("ZoomIn", pMsg) == 0) {

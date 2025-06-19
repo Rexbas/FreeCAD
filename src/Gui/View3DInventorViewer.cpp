@@ -3536,7 +3536,7 @@ void View3DInventorViewer::viewSelection()
     }
 }
 
-void View3DInventorViewer::alignToSelection()
+void View3DInventorViewer::alignToSelection(const bool inverseIfAligned) const
 {
     if (!getCamera()) {
         return;
@@ -3647,6 +3647,21 @@ void View3DInventorViewer::alignToSelection()
             directionZ[0],  directionZ[1],  directionZ[2],  0,
             0,              0,              0,              1));
 
+        if (inverseIfAligned) {
+            const auto isAligned = Base::convertTo<Base::Rotation>(cameraOrientation)
+                                       .isSame(Base::convertTo<Base::Rotation>(orientation),
+                                               std::numeric_limits<float>::epsilon());
+
+            // If the camera is already aligned with the selection then reverse to the opposite view
+            if (isAligned) {
+                SbVec3f cameraY;
+                cameraOrientation.multVec(SbVec3f(0, 1, 0), cameraY);
+                
+                setCameraOrientation(cameraOrientation * SbRotation(cameraY, pi));
+                return;
+            }
+        }
+        
         setCameraOrientation(orientation);
     }
 }
