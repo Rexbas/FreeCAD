@@ -3987,6 +3987,40 @@ bool StdCmdReverseAlignToSelection::isActive()
 }
 
 //===========================================================================
+// Std_SelectionAlignmentGroup
+//===========================================================================
+class StdCmdSelectionAlignmentGroup: public Gui::GroupCommand
+{
+public:
+    StdCmdSelectionAlignmentGroup()
+        : GroupCommand("Std_SelectionAlignmentGroup")
+    {
+        sGroup = "Selection-Alignment";
+        sMenuText = QT_TR_NOOP("Selection alignment");
+        sToolTipText = QT_TR_NOOP("Selection alignment");
+        sWhatsThis = "Std_SelectionAlignmentGroup";
+        sPixmap = "align-to-selection";
+        eType = Alter3DView;
+
+        setCheckable(false);
+        setRememberLast(true);
+
+        addCommand("Std_AlignToSelection");
+        addCommand("Std_ReverseAlignToSelection");
+    }
+
+    const char* className() const override
+    {
+        return "StdCmdSelectionAlignmentGroup";
+    }
+
+    bool isActive() override
+    {
+        return hasActiveDocument();
+    }
+};
+
+//===========================================================================
 // Instantiation
 //===========================================================================
 
@@ -4019,6 +4053,7 @@ void CreateViewStdCommands()
     rcCmdMgr.addCommand(new StdCmdViewGroup());
     rcCmdMgr.addCommand(new StdCmdAlignToSelection());
     rcCmdMgr.addCommand(new StdCmdReverseAlignToSelection());
+    rcCmdMgr.addCommand(new StdCmdSelectionAlignmentGroup());
 
     rcCmdMgr.addCommand(new StdCmdViewExample1());
     rcCmdMgr.addCommand(new StdCmdViewExample2());

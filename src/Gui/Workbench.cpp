@@ -811,7 +811,7 @@ ToolBarItem* StdWorkbench::setupToolBars() const
     // View
     auto view = new ToolBarItem( root );
     view->setCommand("View");
-    *view << "Std_ViewFitAll" << "Std_ViewFitSelection" << "Std_ViewGroup" << "Std_AlignToSelection"
+    *view << "Std_ViewFitAll" << "Std_ViewFitSelection" << "Std_ViewGroup" << "Std_SelectionAlignmentGroup"
           << "Separator" << "Std_DrawStyle" << "Std_TreeViewActions" << "Std_Measure";
 
     // Individual views
