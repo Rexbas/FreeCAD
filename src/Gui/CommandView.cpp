@@ -3960,6 +3960,33 @@ bool StdCmdAlignToSelection::isActive()
 }
 
 //===========================================================================
+// Std_AlignToSelection
+//===========================================================================
+DEF_STD_CMD_A(StdCmdReverseAlignToSelection)
+
+StdCmdReverseAlignToSelection::StdCmdReverseAlignToSelection()
+  : Command("Std_ReverseAlignToSelection")
+{
+    sGroup        = "View";
+    sMenuText     = QT_TR_NOOP("&Reverse align to selection");
+    sToolTipText  = QT_TR_NOOP("Reverse align the view with the selection");
+    sWhatsThis    = "Std_ReverseAlignToSelection";
+    sPixmap       = "reverse-align-to-selection";
+    eType         = Alter3DView;
+}
+
+void StdCmdReverseAlignToSelection::activated(int iMsg)
+{
+    Q_UNUSED(iMsg);
+    doCommand(Command::Gui,"Gui.SendMsgToActiveView(\"ReverseAlignToSelection\")");
+}
+
+bool StdCmdReverseAlignToSelection::isActive()
+{
+    return getGuiApplication()->sendHasMsgToActiveView("ReverseAlignToSelection");
+}
+
+//===========================================================================
 // Instantiation
 //===========================================================================
 
@@ -3991,6 +4018,7 @@ void CreateViewStdCommands()
     rcCmdMgr.addCommand(new StdRecallWorkingView());
     rcCmdMgr.addCommand(new StdCmdViewGroup());
     rcCmdMgr.addCommand(new StdCmdAlignToSelection());
+    rcCmdMgr.addCommand(new StdCmdReverseAlignToSelection());
 
     rcCmdMgr.addCommand(new StdCmdViewExample1());
     rcCmdMgr.addCommand(new StdCmdViewExample2());
