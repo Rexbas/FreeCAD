@@ -3588,11 +3588,6 @@ void View3DInventorViewer::alignToSelection(const bool reverse) const
         SbVec3f cameraZ;
         cameraOrientation.multVec(SbVec3f(0, 0, 1), cameraZ);
 
-        // Negate if the camera is closer to the opposite direction
-        if (cameraZ.dot(directionZ) < 0) {
-            directionZ.negate();
-        }
-
         if (reverse) {
             directionZ.negate();
         }
