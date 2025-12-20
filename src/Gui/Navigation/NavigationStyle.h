@@ -471,6 +471,7 @@ public:
     ThreeDSMaxNavigationStyle();
     ~ThreeDSMaxNavigationStyle() override;
     const char* mouseButtons(ViewerMode) override;
+    std::string userFriendlyName() const override;
 
 protected:
     SbBool processSoEvent(const SoEvent* const ev) override;

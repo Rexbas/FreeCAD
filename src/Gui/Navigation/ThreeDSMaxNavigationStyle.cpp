@@ -56,6 +56,11 @@ const char* ThreeDSMaxNavigationStyle::mouseButtons(ViewerMode mode)
     }
 }
 
+std::string ThreeDSMaxNavigationStyle::userFriendlyName() const
+{
+    return {"3ds Max"};
+}
+
 SbBool ThreeDSMaxNavigationStyle::processSoEvent(const SoEvent* const ev)
 {
     if (this->isSeekMode()) {
