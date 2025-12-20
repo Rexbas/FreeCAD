@@ -461,6 +461,24 @@ private:
     SbBool lockButton1 {false};
 };
 
+class GuiExport ThreeDSMaxNavigationStyle: public UserNavigationStyle
+{
+    using inherited = UserNavigationStyle;
+
+    TYPESYSTEM_HEADER_WITH_OVERRIDE();
+
+public:
+    ThreeDSMaxNavigationStyle();
+    ~ThreeDSMaxNavigationStyle() override;
+    const char* mouseButtons(ViewerMode) override;
+
+protected:
+    SbBool processSoEvent(const SoEvent* const ev) override;
+
+private:
+    SbBool lockButton1 {false};
+};
+
 class GuiExport MayaGestureNavigationStyle: public UserNavigationStyle
 {
     using inherited = UserNavigationStyle;

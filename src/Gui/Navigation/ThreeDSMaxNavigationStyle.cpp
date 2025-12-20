@@ -1,0 +1,313 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+/***************************************************************************
+ *   Copyright (c) 2011 Werner Mayer <wmayer[at]users.sourceforge.net>     *
+ *                                                                         *
+ *   This file is part of the FreeCAD CAx development system.              *
+ *                                                                         *
+ *   This library is free software; you can redistribute it and/or         *
+ *   modify it under the terms of the GNU Library General Public           *
+ *   License as published by the Free Software Foundation; either          *
+ *   version 2 of the License, or (at your option) any later version.      *
+ *                                                                         *
+ *   This library  is distributed in the hope that it will be useful,      *
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+ *   GNU Library General Public License for more details.                  *
+ *                                                                         *
+ *   You should have received a copy of the GNU Library General Public     *
+ *   License along with this library; see the file COPYING.LIB. If not,    *
+ *   write to the Free Software Foundation, Inc., 59 Temple Place,         *
+ *   Suite 330, Boston, MA  02111-1307, USA                                *
+ *                                                                         *
+ ***************************************************************************/
+
+
+#include <QApplication>
+
+#include "Navigation/NavigationStyle.h"
+#include "View3DInventorViewer.h"
+
+using namespace Gui;
+
+// ----------------------------------------------------------------------------------
+
+/* TRANSLATOR Gui::ThreeDSMaxNavigationStyle */
+
+TYPESYSTEM_SOURCE(Gui::ThreeDSMaxNavigationStyle, Gui::UserNavigationStyle)
+
+ThreeDSMaxNavigationStyle::ThreeDSMaxNavigationStyle()
+{}
+
+ThreeDSMaxNavigationStyle::~ThreeDSMaxNavigationStyle() = default;
+
+const char* ThreeDSMaxNavigationStyle::mouseButtons(ViewerMode mode)
+{
+    switch (mode) {
+        case NavigationStyle::SELECTION:
+            return QT_TR_NOOP("Press left mouse button");
+        case NavigationStyle::PANNING:
+            return QT_TR_NOOP("Press Ctrl and middle mouse button");
+        case NavigationStyle::DRAGGING:
+            return QT_TR_NOOP("Press Alt and middle mouse button (Orbit)");
+        case NavigationStyle::ZOOMING:
+            return QT_TR_NOOP("Press Ctrl + Alt and middle mouse button");
+        default:
+            return "No description";
+    }
+}
+
+SbBool ThreeDSMaxNavigationStyle::processSoEvent(const SoEvent* const ev)
+{
+    if (this->isSeekMode()) {
+        return inherited::processSoEvent(ev);
+    }
+    if (!this->isSeekMode() && !this->isAnimating() && this->isViewing()) {
+        this->setViewing(false);
+    }
+
+    const SoType type(ev->getTypeId());
+    const SbViewportRegion& vp = viewer->getSoRenderManager()->getViewportRegion();
+    const SbVec2s pos(ev->getPosition());
+    const SbVec2f posn = normalizePixelPos(pos);
+    const SbVec2f prevnormalized = this->lastmouseposition;
+    this->lastmouseposition = posn;
+
+    SbBool processed = false;
+    const ViewerMode curmode = this->currentmode;
+    ViewerMode newmode = curmode;
+
+    syncModifierKeys(ev);
+
+    if (!viewer->isEditing()) {
+        processed = handleEventInForeground(ev);
+        if (processed) {
+            return true;
+        }
+    }
+
+    // Keyboard handling
+    if (type.isDerivedFrom(SoKeyboardEvent::getClassTypeId())) {
+        const auto event = static_cast<const SoKeyboardEvent*>(ev);
+        processed = processKeyboardEvent(event);
+    }
+
+    // Mouse Button / Spaceball Button handling
+    if (type.isDerivedFrom(SoMouseButtonEvent::getClassTypeId())) {
+        const auto* const event = (const SoMouseButtonEvent*)ev;
+        const int button = event->getButton();
+        const SbBool press = event->getState() == SoButtonEvent::DOWN ? true : false;
+
+        switch (button) {
+            case SoMouseButtonEvent::BUTTON1:
+                this->lockrecenter = true;
+                this->button1down = press;
+
+                if (press && (this->currentmode == NavigationStyle::SEEK_WAIT_MODE)) {
+                    newmode = NavigationStyle::SEEK_MODE;
+                    this->seekToPoint(pos);
+                    processed = true;
+                }
+                else if (press
+                         && (this->currentmode == NavigationStyle::PANNING
+                             || this->currentmode == NavigationStyle::ZOOMING)) {
+                    newmode = NavigationStyle::DRAGGING;
+                    saveCursorPosition(ev);
+                    this->centerTime = ev->getTime();
+                    processed = true;
+                }
+                else if (!press && (this->currentmode == NavigationStyle::DRAGGING)) {
+                    processed = true;
+                }
+                else if (viewer->isEditing() && (this->currentmode == NavigationStyle::SPINNING)) {
+                    processed = true;
+                }
+                else {
+                    processed = processClickEvent(event);
+                }
+                break;
+
+            case SoMouseButtonEvent::BUTTON2:  // Right Mouse Button
+                this->lockrecenter = true;
+                this->button2down = press;
+                // Standard RMB handling (context menu)
+                if (!press && (hasDragged || hasPanned || hasZoomed)) {
+                    processed = true;
+                }
+                else if (!press && !viewer->isEditing()) {
+                    if (this->currentmode != NavigationStyle::ZOOMING
+                        && this->currentmode != NavigationStyle::PANNING
+                        && this->currentmode != NavigationStyle::DRAGGING) {
+                        if (this->isPopupMenuEnabled()) {
+                            this->openPopupMenu(event->getPosition());
+                        }
+                    }
+                }
+                break;
+
+            case SoMouseButtonEvent::BUTTON3:  // Middle Mouse Button (The primary button for 3ds
+                                               // Max navigation)
+                this->button3down = press;
+                if (press) {
+                    this->centerTime = ev->getTime();
+                    setupPanningPlane(getCamera());
+                    this->lockrecenter = false;
+                }
+                else {
+                    // Check for a quick middle-click to "Look At" (like SolidWorks)
+                    SbTime tmp = (ev->getTime() - this->centerTime);
+                    float dci = (float)QApplication::doubleClickInterval() / 1000.0f;
+                    if (tmp.getValue() < dci && !this->lockrecenter) {
+                        lookAtPoint(pos);
+                        processed = true;
+                    }
+                }
+                break;
+            default:
+                break;
+        }
+    }
+
+    // Mouse Movement handling (Action Phase)
+    if (type.isDerivedFrom(SoLocation2Event::getClassTypeId())) {
+        this->lockrecenter = true;
+        const auto* const event = (const SoLocation2Event*)ev;
+
+        if (this->currentmode == NavigationStyle::ZOOMING) {
+            this->zoomByCursor(posn, prevnormalized);
+            processed = true;
+        }
+        else if (this->currentmode == NavigationStyle::PANNING) {
+            float ratio = vp.getViewportAspectRatio();
+            panCamera(
+                viewer->getSoRenderManager()->getCamera(),
+                ratio,
+                this->panningplane,
+                posn,
+                prevnormalized
+            );
+            processed = true;
+        }
+        else if (this->currentmode == NavigationStyle::DRAGGING) {
+            this->addToLog(event->getPosition(), event->getTime());
+            this->spin(posn);
+            moveCursorPosition();
+            processed = true;
+        }
+    }
+
+    // Spaceball & Joystick handling
+    if (type.isDerivedFrom(SoMotion3Event::getClassTypeId())) {
+        const auto* const event = static_cast<const SoMotion3Event*>(ev);
+        if (event) {
+            this->processMotionEvent(event);
+        }
+        processed = true;
+    }
+
+    // ---------------------------------------------------------------------------------
+    // Mode Determination (Start Phase)
+    // ---------------------------------------------------------------------------------
+    enum
+    {
+        BUTTON1DOWN = 1 << 0,
+        BUTTON3DOWN = 1 << 1,  // Middle Mouse Button
+        CTRLDOWN = 1 << 2,     // Ctrl key
+        SHIFTDOWN = 1 << 3,    // Shift key
+        BUTTON2DOWN = 1 << 4,  // Right Mouse Button
+        ALTDOWN = 1 << 5       // Alt key (Crucial for 3ds Max style)
+    };
+
+    // Calculate the combined state of buttons and modifiers
+    unsigned int combo = (this->button1down ? BUTTON1DOWN : 0)
+        | (this->button2down ? BUTTON2DOWN : 0) | (this->button3down ? BUTTON3DOWN : 0)
+        | (this->ctrldown ? CTRLDOWN : 0) | (this->shiftdown ? SHIFTDOWN : 0)
+        | (this->altdown ? ALTDOWN : 0);
+
+    switch (combo) {
+        case 0:
+            // No buttons/modifiers pressed - return to IDLE mode
+            if (curmode == NavigationStyle::SPINNING) {
+                break;
+            }
+            newmode = NavigationStyle::IDLE;
+            if (this->lockButton1) {
+                this->lockButton1 = false;
+                if (curmode != NavigationStyle::SELECTION) {
+                    processed = true;
+                }
+            }
+            break;
+
+        case BUTTON1DOWN:
+        case CTRLDOWN | BUTTON1DOWN:
+            // Left Mouse Button alone (Selection) or with Ctrl
+            if (curmode == NavigationStyle::SPINNING
+                || (this->lockButton1 && curmode != NavigationStyle::SELECTION)) {
+                newmode = NavigationStyle::IDLE;
+            }
+            else {
+                newmode = NavigationStyle::SELECTION;
+            }
+            break;
+
+        // --- 3ds Max Mappings ---
+
+        // Orbit: Alt + Middle Mouse Button
+        case ALTDOWN | BUTTON3DOWN:
+            if (newmode != NavigationStyle::DRAGGING) {
+                saveCursorPosition(ev);
+            }
+            newmode = NavigationStyle::DRAGGING;
+            break;
+
+        // Pan: Ctrl + Middle Mouse Button
+        case CTRLDOWN | BUTTON3DOWN:
+            newmode = NavigationStyle::PANNING;
+            break;
+
+        // Zoom: Ctrl + Alt + Middle Mouse Button
+        case CTRLDOWN | ALTDOWN | BUTTON3DOWN:
+            newmode = NavigationStyle::ZOOMING;
+            break;
+
+            // --- End of 3ds Max Mappings ---
+
+        default:
+            // Default handling for releasing navigation buttons (e.g., releasing a button in a combo)
+            if ((curmode == NavigationStyle::DRAGGING || curmode == NavigationStyle::PANNING
+                 || curmode == NavigationStyle::ZOOMING)
+                && !this->button3down) {
+                newmode = NavigationStyle::IDLE;
+            }
+            break;
+    }
+
+    if (this->button1down && (this->button2down || this->button3down)) {
+        this->lockButton1 = true;
+        processed = true;
+    }
+
+    // Prevent interrupting rubber-band selection in sketcher
+    if (viewer->isEditing() && curmode == NavigationStyle::SELECTION
+        && newmode != NavigationStyle::IDLE) {
+        newmode = NavigationStyle::SELECTION;
+        processed = false;
+    }
+
+    // Reset flags when newmode is IDLE and the buttons are released
+    if (newmode == IDLE && !button1down && !button2down && !button3down) {
+        hasPanned = false;
+        hasDragged = false;
+        hasZoomed = false;
+    }
+
+    if (newmode != curmode) {
+        this->setViewingMode(newmode);
+    }
+
+    if (!processed) {
+        processed = inherited::processSoEvent(ev);
+    }
+
+    return processed;
+}
