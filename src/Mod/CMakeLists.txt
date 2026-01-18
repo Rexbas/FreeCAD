@@ -70,10 +70,6 @@ if(BUILD_PLOT)
   add_subdirectory(Plot)
 endif(BUILD_PLOT)
 
-if(BUILD_SANDBOX)
-    add_subdirectory(Sandbox)
-endif(BUILD_SANDBOX)
-
 if(BUILD_SHOW)
     add_subdirectory(Show)
 endif(BUILD_SHOW)
