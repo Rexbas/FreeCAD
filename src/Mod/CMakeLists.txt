@@ -38,10 +38,6 @@ if(BUILD_IMPORT)
   add_subdirectory(Import)
 endif(BUILD_IMPORT)
 
-if(BUILD_INSPECTION)
-  add_subdirectory(Inspection)
-endif(BUILD_INSPECTION)
-
 if(BUILD_JTREADER)
   add_subdirectory(JtReader)
 endif(BUILD_JTREADER)
